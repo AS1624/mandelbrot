@@ -5,7 +5,7 @@ import math
 import threading
 
 
-width = 600
+width = 1000
 height = width
 scale = 1
 wheelCount = -20
@@ -18,7 +18,7 @@ transY = 1.0252715546584952
 
 explore = False
 min = -20
-step = 0.5
+step = 0.2
 max = 170
 
 halfW = width / 2
@@ -131,7 +131,7 @@ while running:
     halfW = width / 2
     halfH = height / 2
     
-    create("movie/{}.png".format(int( (wheelCount - min ) / step) ))
+    create("movie/{:03d}.png".format(int( (wheelCount - min ) / step) ))
     if not explore:
         wheelCount += step
         if wheelCount > max:

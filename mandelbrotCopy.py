@@ -3,6 +3,7 @@ import numpy as np
 import pygame
 import math
 import threading
+import sys
 
 
 width = 1000
@@ -18,9 +19,13 @@ transY = 1.0252715546584952
 
 explore = False
 min = -20
-step = 0.2
+step = 1
+offset = 0.1
+this = sys.argv[0]
+this = this if type(this) is type(0) else 0
 max = 170
 
+wheelCount += this
 halfW = width / 2
 halfH = height / 2
 xDenom =  1 / (width * scale) 
@@ -131,7 +136,11 @@ while running:
     halfW = width / 2
     halfH = height / 2
     
-    create("movie/{:03d}.png".format(int( (wheelCount - min ) / step) ))
+    create("movie/{:03d}.png".format(int( 
+        (wheelCount - min ) 
+        / (step * offset) 
+        + this
+    )))
     if not explore:
         wheelCount += step
         if wheelCount > max:

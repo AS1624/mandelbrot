@@ -9,7 +9,7 @@ width = 200
 height = width
 scale = 1
 wheelCount = 0
-winScale = math.floor(600 / width)
+winScale = math.floor(1000 / width)
 maxReps = 30
 dataType = np.complex128
 
@@ -90,13 +90,13 @@ while running:
     x, y = (0, 0)
     keys = pygame.key.get_pressed()
     if keys[pygame.K_LEFT]:
-        x -= 1
+        x -= 2
     if keys[pygame.K_RIGHT]:
-        x += 1
+        x += 2
     if keys[pygame.K_UP]:
-        y -= 1
+        y -= 2
     if keys[pygame.K_DOWN]:
-        y += 1
+        y += 2
     if keys[pygame.K_EQUALS]:
         maxReps += 1
     if keys[pygame.K_MINUS]:

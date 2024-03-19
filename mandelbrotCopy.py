@@ -6,7 +6,7 @@ import threading
 import sys
 
 
-width = 1000
+width = 100
 height = width
 scale = 1
 wheelCount = -20
@@ -17,15 +17,11 @@ dataType = np.complex128
 transX = -0.15748662592470025
 transY = 1.0252715546584952
 
-explore = False
+explore = True
 min = -20
 step = 1
-offset = 0.1
-this = sys.argv[0]
-this = this if type(this) is type(0) else 0
 max = 170
 
-wheelCount += this
 halfW = width / 2
 halfH = height / 2
 xDenom =  1 / (width * scale) 
@@ -37,13 +33,44 @@ def constrain(val, min_val, max_val):
     if val > max_val: return max_val
 
     return val
-def col(mag):
-#    print(mag)
-    mag = math.sqrt(mag / maxReps) * 255
-    # return (mag, mag, mag)
-    return mag
+    
+def hsb_to_rgb(hue, saturation, brightness):
+    if saturation == 0:
+        r = g = b = int(brightness * 255)
+    else:
+        h = hue / 60.0
+        i = int(h)
+        f = h - i
+        p = brightness * (1 - saturation)
+        q = brightness * (1 - saturation * f)
+        t = brightness * (1 - saturation * (1 - f))
 
-def create(name):
+        if i == 0:
+            r, g, b = brightness, t, p
+        elif i == 1:
+            r, g, b = q, brightness, p
+        elif i == 2:
+            r, g, b = p, brightness, t
+        elif i == 3:
+            r, g, b = p, q, brightness
+        elif i == 4:
+            r, g, b = t, p, brightness
+        else:
+            r, g, b = brightness, p, q
+
+        r = int(r * 255)
+        g = int(g * 255)
+        b = int(b * 255)
+
+    return r, g, b
+    
+def col(mag, min, max):
+    mag = math.floor( (mag - min ) / (max - min) * 255)
+    # print(mag)
+    if explore: return (mag, mag, mag)
+    else:       return mag
+
+def create(name, explore, width, height):
     pixels = np.full((width, height), 0, dtype=np.uint8)
 
     Z = np.zeros((width, height), dtype=dataType)
@@ -64,35 +91,30 @@ def create(name):
 
     M = np.full((width, height), True, dtype=bool)
 
-    counts = np.zeros(maxReps)
+    counts = np.full((width, height), 1)
     total = 0
 
     for i in range(maxReps): # pass 1
         Z[M] = Z[M] * Z[M] + C[M]
         overWrite = np.logical_and(M, np.abs(Z) > 2)
-        pixels[overWrite] = col(i)
+        pixels[overWrite] = i
         M[np.abs(Z) > 2] = False
-    '''    
-    for y in range(len(pixels)): # pass 2
-        for x in range(len(pixels[y])):
-            counts[pixels[y, x]] += 1
     
-    for i in range(maxReps): # pass 3
-        total += counts[i]
+    Z = np.floor(np.log(np.abs(Z)) / math.log(2))
+    Z = Z.astype(np.uint8)
+    pixels += Z 
+    pixels.astype(np.uint8)
+    
+    minPix = np.nanmin(pixels)
+    maxPix = np.nanmax(pixels)
 
-    for y in range(len(pixels)): # pass 4
-        for x in range(len(pixels[0])):
-            iterations = pixels[y, x]
-            pixels[y, x] = 0
-            for i in range(iterations + 1):
-                pixels[y, x] += counts[i] / total
-   '''
     if not explore:
         png.from_array(pixels, 'L').save(name)
-    if explore:
+    else:
         for y in range(len(pixels)):
             for x in range(len(pixels[y])):
-                pygame.draw.rect(win, col(pixels[y, x]), (x * winScale, y * winScale, winScale, winScale))
+                #print(y, x)
+                pygame.draw.rect(win, col(pixels[y, x], minPix, maxPix), (x * winScale, y * winScale, winScale, winScale))
 if explore:
     pygame.init()
 
@@ -104,6 +126,7 @@ while running:
     if not explore:
         print("wheelCount: ", wheelCount)
     if explore:
+        print("fps: {:0.1f}".format(clock.get_fps()))
         clock.tick(60)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -124,8 +147,8 @@ while running:
             maxReps += 1
         if keys[pygame.K_MINUS]:
             maxReps -= 1
-
-    x, y = (0, 0)
+        if keys[pygame.K_s]:
+            create("save.png", False, 1000, 1000)
     transX += x / (width ) / scale
     transY += y / (height ) / scale
     scale = math.exp(wheelCount / 10)
@@ -138,9 +161,12 @@ while running:
     
     create("movie/{:03d}.png".format(int( 
         (wheelCount - min ) 
-        / (step * offset) 
-        + this
-    )))
+        / (step) 
+    )),
+    explore,
+    width,
+    height
+    )
     if not explore:
         wheelCount += step
         if wheelCount > max:
@@ -150,4 +176,3 @@ while running:
         pygame.draw.line(win, 0x888888, (0, height * winScale / 2), ( width * winScale, height * winScale / 2))
 
         pygame.display.update()
-# create("test.png")

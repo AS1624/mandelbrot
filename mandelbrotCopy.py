@@ -8,22 +8,23 @@ from PIL import Image
 import random
 import os
 
-width = 100
-height = width
+width = 64
+height = 48
 scale = 1
-wheelCount = -20
+wheelCount = -10
 winScale = math.floor(600 / width)
-maxReps = 338
+maxReps = 820
 dataType = np.complex128
-
-transX = -0.6373537012997929
-transY = 0.40434321082891456
-
+'''
+transX = -0.7477818340495408 
+transY = 0.07254637450717176
+'''
+transX, transY = (0, 0)
 running = True
 explore = True
 min = -20
 step = 0.5
-max = 294
+max = 322
 
 halfW = width / 2
 halfH = height / 2
@@ -114,27 +115,30 @@ def col(mag):
 
 
 def create(name, explore, width, height):
-    pixels = np.full((width, height), 0, dtype=np.uint16)
+    pixels = np.full((height, width), 0, dtype=np.uint16)
 
-    Z = np.zeros((width, height), dtype=dataType)
+    Z = np.zeros((height, width), dtype=dataType)
 
     x = np.linspace(
         - halfW * xDenom + transX,
           halfW * xDenom + transX, 
-        num=height
-    ).reshape((1, height))
+        num=width
+    ).reshape((1, width))
     y = np.linspace(
         - halfH * yDenom + transY, 
           halfH * yDenom + transY, 
-        num=width
-    ).reshape((width, 1))
+        num=height
+    ).reshape((height, 1))
 
-    C = np.tile(x, (width, 1)) + 1j * np.tile(y, (1, height))
+    print(x, width, xDenom)
+    print(y, height, yDenom)
+
+    C = np.tile(y, (1, width)) * 1j + np.tile(x, (height, 1))
     C.dtype = dataType
 
-    M = np.full((width, height), True, dtype=bool)
-
-    counts = np.full((width, height), 1)
+    M = np.full((height, width), True, dtype=bool)
+    print(C.shape)
+    counts = np.full((height, width), 1)
     total = 0
 
     for i in range(maxReps): # pass 1

@@ -9,22 +9,22 @@ import random
 import os
 
 width = 64
-height = 48
+height = math.floor( width / 16 * 9 )
 scale = 1
-wheelCount = -10
+wheelCount = 30
 winScale = math.floor(600 / width)
 maxReps = 820
 dataType = np.complex128
-'''
+
 transX = -0.7477818340495408 
 transY = 0.07254637450717176
-'''
-transX, transY = (0, 0)
+
+# transX, transY = (0, 0)
 running = True
 explore = True
 min = -20
 step = 0.5
-max = 322
+max = 372
 
 halfW = width / 2
 halfH = height / 2
@@ -120,24 +120,20 @@ def create(name, explore, width, height):
     Z = np.zeros((height, width), dtype=dataType)
 
     x = np.linspace(
-        - halfW * xDenom + transX,
-          halfW * xDenom + transX, 
+        - halfW / scale + transX,
+          halfW / scale + transX, 
         num=width
     ).reshape((1, width))
     y = np.linspace(
-        - halfH * yDenom + transY, 
-          halfH * yDenom + transY, 
+        - halfH / scale + transY, 
+          halfH / scale + transY, 
         num=height
     ).reshape((height, 1))
-
-    print(x, width, xDenom)
-    print(y, height, yDenom)
 
     C = np.tile(y, (1, width)) * 1j + np.tile(x, (height, 1))
     C.dtype = dataType
 
     M = np.full((height, width), True, dtype=bool)
-    print(C.shape)
     counts = np.full((height, width), 1)
     total = 0
 
@@ -156,7 +152,7 @@ def create(name, explore, width, height):
 
     if not explore:
         # png.from_array(pixels, 'L').save(name)
-        out = np.full((width, height, 3), 0, dtype=np.uint8)
+        out = np.full((height, width, 3), 0, dtype=np.uint8)
         for y in range(len(pixels)):
             for x in range(len(pixels[0])):
                 out[y, x] = col(pixels[y, x])
@@ -180,7 +176,7 @@ if(len(sys.argv) > 1):
     halfW = width / 2
     halfH = height / 2
 
-    create(sys.argv[5], False, 1000, 1000)
+    create(sys.argv[5], False, 720, math.ceil(720 * 9 / 16))
     exit()
 
 if explore:
@@ -219,15 +215,15 @@ while running:
             # create("save{}.png".format(random.randint(0, 1000)), False, 1000, 1000)
             os.popen(
                     "python3 "
-                    + "mandelbrotCopy.py "
+                    + "mandelbrot.py "
                     + str(wheelCount) + " "
                     + str(maxReps) + " "
                     + str(transX) + " "
                     + str(transY) + " "
                     + "save{}.png".format(random.randint(0, 1000))   
             )
-    transX += x / (width ) / scale
-    transY += y / (height ) / scale
+    transX += x / scale
+    transY += y / scale
     scale = math.exp(wheelCount / 10)
 
     xDenom = 1 / (width * scale)

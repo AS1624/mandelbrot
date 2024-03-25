@@ -22,7 +22,7 @@ for i in range(math.floor( ( max - min ) / step)):
         pass
     print(i, "out of", math.floor( ( max - min ) / step))
     os.popen(
-            "python3 mandelbrotCopy.py {} {} {} {} {}"
+            "python3 mandelbrot.py {} {} {} {} {}"
             .format(
                 i * step + min, 
                 maxReps,

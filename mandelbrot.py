@@ -7,8 +7,9 @@ import sys
 from PIL import Image
 import random
 import os
+import json
 
-width = 64
+width = 100
 height = math.floor( width / 16 * 9 )
 scale = 1
 wheelCount = 30
@@ -66,45 +67,9 @@ def lerp(c1, c2, t):
             g2 * t + g1 * ( 1 - t ),
             b2 * t + b1 * ( 1 - t )
            )
-def constrain(val, min_val, max_val):
-    if math.isnan(val): return max_val
-    if val < min_val: return min_val
-    if val > max_val: return max_val
 
-    return val
-    
-def hsb_to_rgb(hue, saturation, brightness):
-    if saturation == 0:
-        r = g = b = int(brightness * 255)
-    else:
-        h = hue / 60.0
-        i = int(h)
-        f = h - i
-        p = brightness * (1 - saturation)
-        q = brightness * (1 - saturation * f)
-        t = brightness * (1 - saturation * (1 - f))
-
-        if i == 0:
-            r, g, b = brightness, t, p
-        elif i == 1:
-            r, g, b = q, brightness, p
-        elif i == 2:
-            r, g, b = p, brightness, t
-        elif i == 3:
-            r, g, b = p, q, brightness
-        elif i == 4:
-            r, g, b = t, p, brightness
-        else:
-            r, g, b = brightness, p, q
-
-        r = int(r * 255)
-        g = int(g * 255)
-        b = int(b * 255)
-
-    return r, g, b
-    
 def col(mag):
-    mag = ( mag * 4 )
+    mag = ( mag * 1 )
     #return (mag, mag, mag)
     #return hsb_to_rgb(mag, 0.8, 1)
     c1 = colors[  math.floor(mag / 360 * len(colors)) % len(colors)]
@@ -116,6 +81,9 @@ def col(mag):
 
 def create(name, explore, width, height):
     pixels = np.full((height, width), 0, dtype=np.uint16)
+
+    halfW = width * 0.5
+    halfH = height * 0.5
 
     Z = np.zeros((height, width), dtype=dataType)
 
@@ -138,6 +106,7 @@ def create(name, explore, width, height):
     total = 0
 
     for i in range(maxReps): # pass 1
+        print("{:.2f}%".format(i / maxReps * 100))
         Z[M] = Z[M] * Z[M] + C[M]
         overWrite = np.logical_and(M, np.abs(Z) > 2)
         pixels[overWrite] = i
@@ -162,8 +131,30 @@ def create(name, explore, width, height):
             for x in range(len(pixels[y])):
                 #print(y, x)
                 pygame.draw.rect(win, col(pixels[y, x]), (x * winScale, y * winScale, winScale, winScale))
+if(len(sys.argv) == 2):
+    with open(sys.argv[1], "r") as f:
+        d = json.load(f)
+        
 
-if(len(sys.argv) > 1):
+        wheelCount = d["wheelCount"]
+        maxReps = d["maxReps"]
+        transX = d["transX"]
+        transY = d["transY"]
+
+
+        scale = math.exp(wheelCount / 10)
+        xDenom = 1 / (width * scale)
+        yDenom = 1 / (height * scale)
+        halfW = width / 2
+        halfH = height / 2
+
+        height = 10000
+        width = 10000
+
+        create(sys.argv[1] + ".png", False, width, height)
+    exit()
+
+elif(len(sys.argv) > 1):
     wheelCount = float(sys.argv[1])
     maxReps = int(sys.argv[2])
     transX = float(sys.argv[3])
@@ -208,9 +199,9 @@ while running:
         if keys[pygame.K_DOWN]:
             y += 20 / clock.get_fps()
         if keys[pygame.K_EQUALS]:
-            maxReps += 1
+            maxReps += 100
         if keys[pygame.K_MINUS]:
-            maxReps -= 1
+            maxReps -= 100
         if keys[pygame.K_s]:
             # create("save{}.png".format(random.randint(0, 1000)), False, 1000, 1000)
             os.popen(
@@ -222,6 +213,18 @@ while running:
                     + str(transY) + " "
                     + "save{}.png".format(random.randint(0, 1000))   
             )
+        if keys[pygame.K_p]:
+            jsonFile = json.dumps(
+                    {
+                        "wheelCount": wheelCount,
+                        "maxReps": maxReps,
+                        "transX": transX,
+                        "transY": transY,
+                    }
+            )
+            with open(input("name, no file extention"), "w") as outFile:
+                outFile.write(jsonFile)
+
     transX += x / scale
     transY += y / scale
     scale = math.exp(wheelCount / 10)

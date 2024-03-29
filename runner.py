@@ -10,7 +10,7 @@ max_processes = 4
 
 transX = -0.6373537012997929
 transY = 0.40434321082891456
-maxReps = 334
+maxReps = 310
 
 def processes():
     running = psutil.process_iter(attrs=['pid', 'name', 'status'])

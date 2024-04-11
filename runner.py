@@ -1,16 +1,18 @@
 import os
 import math
 import psutil
-
+"""
+"wheelCount": 381, "maxReps": 2020, "transX": -0.7490100649853734, "transY": 0.07266128258601036}
+"""
 min = -20
-max = 300
+max = 380
 step = 0.5
 
 max_processes = 4
 
-transX = -0.6373537012997929
-transY = 0.40434321082891456
-maxReps = 310
+transX = -0.7490100649853734,
+transY = 0.07266128258601036
+maxReps = 2020
 
 def processes():
     running = psutil.process_iter(attrs=['pid', 'name', 'status'])

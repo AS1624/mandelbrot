@@ -31,32 +31,15 @@ halfW = width / 2
 halfH = height / 2
 xDenom =  1 / (width * scale) 
 yDenom =  1 / (height * scale)
-'''
 colors = [
         (0, 0, 0),
-        (66, 30, 15),
-        (25, 7, 26),
-        (9, 1, 47),
-        (4, 4, 73),
-        (0, 7, 100),
-        (12, 44, 138),
-        (24, 82, 177),
-        (57, 125, 209),
-        (134, 181, 229),
-        (211, 236, 248),
-        (241, 233, 191),
-        (248, 201, 95),
-        (255, 170, 0),
-        (204, 128, 0),
-        (153, 87, 0),
-        (106, 52, 3)
-        ]
-'''
-colors = [
-        (0, 0, 0),
-        (0, 0, 255),
         (255, 255, 255),
-        (255, 255, 0)
+        (255, 255, 0),
+        (255, 0, 0),
+        (255, 0, 255),
+        (0, 0, 255),
+        (0, 255, 0),
+        (255, 128, 255)
         ]
 
 def lerp(c1, c2, t):
@@ -69,7 +52,7 @@ def lerp(c1, c2, t):
            )
 
 def col(mag):
-    mag = ( mag * 1 )
+    mag = ( mag / 1.5 )
     #return (mag, mag, mag)
     #return hsb_to_rgb(mag, 0.8, 1)
     c1 = colors[  math.floor(mag / 360 * len(colors)) % len(colors)]
@@ -106,7 +89,7 @@ def create(name, explore, width, height):
     total = 0
 
     for i in range(maxReps): # pass 1
-        print("{:.2f}%".format(i / maxReps * 100))
+        # print("{:.2f}%".format(i / maxReps * 100))
         Z[M] = Z[M] * Z[M] + C[M]
         overWrite = np.logical_and(M, np.abs(Z) > 2)
         pixels[overWrite] = i
@@ -148,8 +131,8 @@ if(len(sys.argv) == 2):
         halfW = width / 2
         halfH = height / 2
 
-        height = 10000
-        width = 10000
+        height = 1000
+        width = 1000
 
         create(sys.argv[1] + ".png", False, width, height)
     exit()

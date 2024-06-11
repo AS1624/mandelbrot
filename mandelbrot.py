@@ -8,14 +8,15 @@ from PIL import Image
 import random
 import os
 import json
+from numba import njit
 
 width = 100
 height = math.floor( width / 16 * 9 )
 scale = 1
 wheelCount = 30
-winScale = math.floor(600 / width)
+winScale = math.floor(1000 / width)
 maxReps = 820
-dataType = np.complex128
+dataType = np.complex64
 
 transX = -0.7477818340495408 
 transY = 0.07254637450717176
@@ -32,17 +33,14 @@ halfH = height / 2
 xDenom =  1 / (width * scale) 
 yDenom =  1 / (height * scale)
 colors = [
-        (0, 0, 0),
-        (255, 255, 255),
-        (255, 255, 0),
-        (255, 0, 0),
+        (166, 124, 0),
+        (128, 128, 255),
+        (0, 128, 0),
         (255, 0, 255),
-        (0, 0, 255),
-        (0, 255, 0),
-        (255, 128, 255)
+        (255, 255, 255),
         ]
 
-def lerp(c1, c2, t):
+def lerp(c1, c2, t) -> tuple[int]:
     r1, g1, b1 = c1
     r2, g2, b2 = c2
     return (
@@ -51,15 +49,52 @@ def lerp(c1, c2, t):
             b2 * t + b1 * ( 1 - t )
            )
 
-def col(mag):
-    mag = ( mag / 1.5 )
-    #return (mag, mag, mag)
-    #return hsb_to_rgb(mag, 0.8, 1)
+def col(mag, max) -> tuple[int]:
+    #mag =  math.pow(mag / max, 2) * max / 4 
+
     c1 = colors[  math.floor(mag / 360 * len(colors)) % len(colors)]
     c2 = colors[( math.floor(mag / 360 * len(colors)) + 1 ) % len(colors)]
-
+    
+    if mag == 0:
+        return ((0, 0, 0))
     return lerp(c1, c2, mag / 360 * len(colors) - math.floor(mag / 360 * len(colors)))
 
+@njit(parallel=True)
+def calculate(width, height, explore, pixels, Z, M, C):
+    for i in range(maxReps): # pass 1
+        percent = math.floor(i / maxReps * 100)
+        if not explore and percent == i / maxReps * 100:
+            #print("{:.2f}%".format(percent))
+            pass
+
+        for x in range(Z.shape[0]):
+            for y in range(Z.shape[1]):
+                if M[x, y]:
+                    Z[x, y] = Z[x, y] * Z[x, y] + C[x, y]
+
+        overWrite = np.logical_and(M, np.abs(Z) > 2)
+          
+        for x in range(pixels.shape[0]):
+            for y in range(pixels.shape[1]):
+                if overWrite[x, y]:
+                    pixels[x, y] = i
+        
+        for x in range(Z.shape[0]):
+            for y in range(Z.shape[1]):
+                if M[x, y] == True and abs(Z[x, y]) > 2:
+                    M[x, y] = False
+    
+    Z = np.floor(np.log(np.abs(Z)) / math.log(2))
+    Z = Z.astype(np.uint16)
+    # Assuming pixels, M, and Z are 2D arrays of the same shape
+    for x in range(M.shape[0]):
+        for y in range(M.shape[1]):
+            if not M[x, y]:
+                #pixels[x, y] += Z[x, y] + 1
+                print(pixels[x][y])
+                pass
+    
+    return pixels
 
 
 def create(name, explore, width, height):
@@ -88,32 +123,20 @@ def create(name, explore, width, height):
     counts = np.full((height, width), 1)
     total = 0
 
-    for i in range(maxReps): # pass 1
-        # print("{:.2f}%".format(i / maxReps * 100))
-        Z[M] = Z[M] * Z[M] + C[M]
-        overWrite = np.logical_and(M, np.abs(Z) > 2)
-        pixels[overWrite] = i
-        M[np.abs(Z) > 2] = False
-    
-    Z = np.floor(np.log(np.abs(Z)) / math.log(2))
-    Z = Z.astype(np.uint16)
-    pixels[np.logical_not(M)] += Z[np.logical_not(M)] + 1
-    
-    minPix = np.nanmin(pixels)
-    maxPix = np.nanmax(pixels)
+    pixels = calculate(width, height, explore, pixels, Z, M, C)
 
     if not explore:
         # png.from_array(pixels, 'L').save(name)
         out = np.full((height, width, 3), 0, dtype=np.uint8)
         for y in range(len(pixels)):
             for x in range(len(pixels[0])):
-                out[y, x] = col(pixels[y, x])
+                out[y, x] = col(pixels[y, x], maxReps)
         Image.fromarray(out).save(name)
     else:
         for y in range(len(pixels)):
             for x in range(len(pixels[y])):
                 #print(y, x)
-                pygame.draw.rect(win, col(pixels[y, x]), (x * winScale, y * winScale, winScale, winScale))
+                pygame.draw.rect(win, col(pixels[y, x], maxReps), (x * winScale, y * winScale, winScale, winScale))
 if(len(sys.argv) == 2):
     with open(sys.argv[1], "r") as f:
         d = json.load(f)

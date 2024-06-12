@@ -1,3 +1,4 @@
+import time
 import png
 import numpy as np
 import pygame
@@ -10,13 +11,13 @@ import os
 import json
 from numba import njit
 
-width = 100
+width = 150
 height = math.floor( width / 16 * 9 )
 scale = 1
 wheelCount = 30
-winScale = math.floor(1000 / width)
+winScale = math.floor(1100 / width)
 maxReps = 820
-dataType = np.complex64
+dataType = np.complex128
 
 transX = -0.7477818340495408 
 transY = 0.07254637450717176
@@ -60,13 +61,12 @@ def col(mag, max) -> tuple[int]:
     return lerp(c1, c2, mag / 360 * len(colors) - math.floor(mag / 360 * len(colors)))
 
 @njit(parallel=True)
-def calculate(width, height, explore, pixels, Z, M, C):
+def calculate(width, height, explore, pixels, Z, M, C, maxReps, start):
     for i in range(maxReps): # pass 1
         percent = math.floor(i / maxReps * 100)
         if not explore and percent == i / maxReps * 100:
             #print("{:.2f}%".format(percent))
             pass
-
         for x in range(Z.shape[0]):
             for y in range(Z.shape[1]):
                 if M[x, y]:
@@ -90,14 +90,13 @@ def calculate(width, height, explore, pixels, Z, M, C):
     for x in range(M.shape[0]):
         for y in range(M.shape[1]):
             if not M[x, y]:
-                #pixels[x, y] += Z[x, y] + 1
-                print(pixels[x][y])
-                pass
-    
+                pixels[x, y] += Z[x, y] + 1
     return pixels
 
 
 def create(name, explore, width, height):
+    start = time.process_time_ns()
+
     pixels = np.full((height, width), 0, dtype=np.uint16)
 
     halfW = width * 0.5
@@ -117,13 +116,15 @@ def create(name, explore, width, height):
     ).reshape((height, 1))
 
     C = np.tile(y, (1, width)) * 1j + np.tile(x, (height, 1))
-    C.dtype = dataType
 
     M = np.full((height, width), True, dtype=bool)
     counts = np.full((height, width), 1)
     total = 0
 
-    pixels = calculate(width, height, explore, pixels, Z, M, C)
+    print( (time.process_time_ns() - start) / 1000000 )
+
+    pixels = calculate(width, height, explore, pixels, Z, M, C, maxReps, start)
+    print( (time.process_time_ns() - start) / 1000000 )
 
     if not explore:
         # png.from_array(pixels, 'L').save(name)
@@ -137,6 +138,8 @@ def create(name, explore, width, height):
             for x in range(len(pixels[y])):
                 #print(y, x)
                 pygame.draw.rect(win, col(pixels[y, x], maxReps), (x * winScale, y * winScale, winScale, winScale))
+    print( (time.process_time_ns() - start) / 1000000 )
+
 if(len(sys.argv) == 2):
     with open(sys.argv[1], "r") as f:
         d = json.load(f)

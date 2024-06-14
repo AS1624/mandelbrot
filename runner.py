@@ -1,35 +1,35 @@
 import os
 import math
 import psutil
+from math import exp
 """
-"wheelCount": 381, "maxReps": 2020, "transX": -0.7490100649853734, "transY": 0.07266128258601036}
+"wheelCount": 220, "maxReps": 500, "transX": -0.7558654118335943, "transY": -0.061662310353143644}
 """
-min = -20
-max = 380
+min = 220
+max = 270
 step = 0.5
 
-max_processes = 4
-
-transX = -0.7490100649853734,
-transY = 0.07266128258601036
-maxReps = 2020
+transX = -0.7558654118335943
+transY = -0.061662310353143644
+maxReps = 500
 
 def processes():
-    running = psutil.process_iter(attrs=['pid', 'name', 'status'])
+    running = psutil.process_iter(attrs=['status'])
     
     return sum(1 for p in running if p.info['status'] == 'running') 
 
 for i in range(math.floor( ( max - min ) / step)):
-    while processes() > max_processes :
+    while processes() > 2 :
         pass
     print(i, "out of", math.floor( ( max - min ) / step))
+    maxReps = 600 + int(exp((i+0.5) / 30 + 3) * 4)
     os.popen(
             "python3 mandelbrot.py {} {} {} {} {}"
             .format(
-                i * step + min, 
+                i * step + min + 0.5,
                 maxReps,
                 transX,
                 transY,
-                "movie/" + str(i) + ".png"
+                "movie/" + str(i+0.5) + ".png"
             )
     )

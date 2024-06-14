@@ -9,13 +9,14 @@ from PIL import Image
 import random
 import os
 import json
-from numba import njit
+from numba import jit, njit, prange
+import doubledouble
 
 width = 150
 height = math.floor( width / 16 * 9 )
 scale = 1
 wheelCount = 30
-winScale = math.floor(1100 / width)
+winScale = math.floor(1200 / width)
 maxReps = 820
 dataType = np.complex128
 
@@ -33,14 +34,20 @@ halfW = width / 2
 halfH = height / 2
 xDenom =  1 / (width * scale) 
 yDenom =  1 / (height * scale)
-colors = [
-        (166, 124, 0),
-        (128, 128, 255),
-        (0, 128, 0),
-        (255, 0, 255),
-        (255, 255, 255),
-        ]
 
+@njit
+def _two_sum_quick(x, y):
+    r = x + y
+    e = y - (r - x)
+    return r, e
+
+@njit
+def _two_product(x, y):
+    r = x*y
+    e = 1#fma(x, y, -r)
+    return r, e
+
+@njit(fastmath=True)
 def lerp(c1, c2, t) -> tuple[int]:
     r1, g1, b1 = c1
     r2, g2, b2 = c2
@@ -50,8 +57,16 @@ def lerp(c1, c2, t) -> tuple[int]:
             b2 * t + b1 * ( 1 - t )
            )
 
+@njit(fastmath=True)
 def col(mag, max) -> tuple[int]:
-    #mag =  math.pow(mag / max, 2) * max / 4 
+    colors = [
+            (166, 124, 0),
+            (128, 128, 255),
+            (255, 0, 255),
+            (255, 255, 255),
+    ]
+    mag /= max
+    mag = math.pow(mag, 1/8) * max
 
     c1 = colors[  math.floor(mag / 360 * len(colors)) % len(colors)]
     c2 = colors[( math.floor(mag / 360 * len(colors)) + 1 ) % len(colors)]
@@ -60,29 +75,16 @@ def col(mag, max) -> tuple[int]:
         return ((0, 0, 0))
     return lerp(c1, c2, mag / 360 * len(colors) - math.floor(mag / 360 * len(colors)))
 
-@njit(parallel=True)
-def calculate(width, height, explore, pixels, Z, M, C, maxReps, start):
-    for i in range(maxReps): # pass 1
-        percent = math.floor(i / maxReps * 100)
-        if not explore and percent == i / maxReps * 100:
-            #print("{:.2f}%".format(percent))
-            pass
-        for x in range(Z.shape[0]):
-            for y in range(Z.shape[1]):
+@njit(parallel=True, fastmath=True)
+def calculate(width, height, explore, pixels, Z, M, C, maxReps):
+    for x in prange(Z.shape[0]):
+        for y in range(Z.shape[1]):
+            for i in range(maxReps): # pass 1
                 if M[x, y]:
                     Z[x, y] = Z[x, y] * Z[x, y] + C[x, y]
-
-        overWrite = np.logical_and(M, np.abs(Z) > 2)
-          
-        for x in range(pixels.shape[0]):
-            for y in range(pixels.shape[1]):
-                if overWrite[x, y]:
-                    pixels[x, y] = i
-        
-        for x in range(Z.shape[0]):
-            for y in range(Z.shape[1]):
-                if M[x, y] == True and abs(Z[x, y]) > 2:
-                    M[x, y] = False
+                    if np.abs(Z[x, y]) > 2:
+                        pixels[x, y] = i
+                        M[x, y] = False
     
     Z = np.floor(np.log(np.abs(Z)) / math.log(2))
     Z = Z.astype(np.uint16)
@@ -93,17 +95,42 @@ def calculate(width, height, explore, pixels, Z, M, C, maxReps, start):
                 pixels[x, y] += Z[x, y] + 1
     return pixels
 
+@njit(parallel=True)
+def doubleCaclulate(width, height, explore, pixels, Za, Zb, M, Ca, Cb, maxReps):
+    for x in prange(Za.shape[0]):
+        for y in range(Za.shape[1]):
+            for i in range(maxReps): # pass 1
+                if M[x, y]:
+                    
+                    r, e = _two_product(Za[x, y], Za[x, y])
+                    e += 2 * Za[x, y] * Zb[x, y]
+                    r, e = _two_sum_quick(r, e)
 
+                    Za[x, y], Zb[x, y] = r, e
+                    
+                    if np.abs(Za[x, y]) > 2:
+                        pixels[x, y] = i
+                        M[x, y] = False
+    
+    Za = np.floor(np.log(np.abs(Za)) / math.log(2))
+    Za = Za.astype(np.uint16)
+    # Assuming pixels, M, and Z are 2D arrays of the same shape
+    for x in range(M.shape[0]):
+        for y in range(M.shape[1]):
+            if not M[x, y]:
+                pixels[x, y] += Za[x, y] + 1
+    return pixels
+
+
+@jit(forceobj=True, fastmath=True, parallel=True)
 def create(name, explore, width, height):
-    start = time.process_time_ns()
-
     pixels = np.full((height, width), 0, dtype=np.uint16)
 
     halfW = width * 0.5
     halfH = height * 0.5
 
     Z = np.zeros((height, width), dtype=dataType)
-
+    
     x = np.linspace(
         - halfW / scale + transX,
           halfW / scale + transX, 
@@ -114,17 +141,12 @@ def create(name, explore, width, height):
           halfH / scale + transY, 
         num=height
     ).reshape((height, 1))
-
+    
     C = np.tile(y, (1, width)) * 1j + np.tile(x, (height, 1))
-
+    
     M = np.full((height, width), True, dtype=bool)
-    counts = np.full((height, width), 1)
-    total = 0
-
-    print( (time.process_time_ns() - start) / 1000000 )
-
-    pixels = calculate(width, height, explore, pixels, Z, M, C, maxReps, start)
-    print( (time.process_time_ns() - start) / 1000000 )
+    
+    pixels = calculate(width, height, explore, pixels, Z, M, C, maxReps)
 
     if not explore:
         # png.from_array(pixels, 'L').save(name)
@@ -138,7 +160,6 @@ def create(name, explore, width, height):
             for x in range(len(pixels[y])):
                 #print(y, x)
                 pygame.draw.rect(win, col(pixels[y, x], maxReps), (x * winScale, y * winScale, winScale, winScale))
-    print( (time.process_time_ns() - start) / 1000000 )
 
 if(len(sys.argv) == 2):
     with open(sys.argv[1], "r") as f:
@@ -157,8 +178,8 @@ if(len(sys.argv) == 2):
         halfW = width / 2
         halfH = height / 2
 
-        height = 1000
-        width = 1000
+        height = 2160
+        width = 3840
 
         create(sys.argv[1] + ".png", False, width, height)
     exit()
@@ -176,7 +197,7 @@ elif(len(sys.argv) > 1):
     halfW = width / 2
     halfH = height / 2
 
-    create(sys.argv[5], False, 720, math.ceil(720 * 9 / 16))
+    create(sys.argv[5], False, 1920, 1080)
     exit()
 
 if explore:
@@ -190,6 +211,7 @@ while running:
     if not explore:
         print("wheelCount: ", wheelCount)
     if explore:
+        shift = False
         print("fps: {:0.1f}".format(clock.get_fps()))
         print(wheelCount, maxReps, transX, transY)
         clock.tick(60)
@@ -211,6 +233,8 @@ while running:
             maxReps += 100
         if keys[pygame.K_MINUS]:
             maxReps -= 100
+        if keys[pygame.K_LSHIFT]:
+            shift = True
         if keys[pygame.K_s]:
             # create("save{}.png".format(random.randint(0, 1000)), False, 1000, 1000)
             os.popen(
@@ -233,6 +257,14 @@ while running:
             )
             with open(input("name, no file extention"), "w") as outFile:
                 outFile.write(jsonFile)
+        
+    if shift:
+        width = 300
+
+    else:
+        width = 150
+    height = math.floor( width / 16 * 9 )
+    winScale = math.floor(1200 / width)
 
     transX += x / scale
     transY += y / scale

@@ -1,5 +1,4 @@
 import time
-import png
 import numpy as np
 import pygame
 import math
@@ -10,13 +9,12 @@ import random
 import os
 import json
 from numba import jit, njit, prange
-import doubledouble
 
 width = 150
 height = math.floor( width / 16 * 9 )
 scale = 1
 wheelCount = 30
-winScale = math.floor(1200 / width)
+winScale = 10
 maxReps = 820
 dataType = np.complex128
 
@@ -58,15 +56,14 @@ def lerp(c1, c2, t) -> tuple[int]:
            )
 
 @njit(fastmath=True)
-def col(mag, max) -> tuple[int]:
+def col(mag) -> tuple[int]:
     colors = [
             (166, 124, 0),
             (128, 128, 255),
             (255, 0, 255),
             (255, 255, 255),
     ]
-    mag /= max
-    mag = math.pow(mag, 1/8) * max
+    mag = math.pow(mag, 1/8) * 300
 
     c1 = colors[  math.floor(mag / 360 * len(colors)) % len(colors)]
     c2 = colors[( math.floor(mag / 360 * len(colors)) + 1 ) % len(colors)]
@@ -88,7 +85,7 @@ def calculate(width, height, explore, pixels, Z, M, C, maxReps):
     
     Z = np.floor(np.log(np.abs(Z)) / math.log(2))
     Z = Z.astype(np.uint16)
-    # Assuming pixels, M, and Z are 2D arrays of the same shape
+
     for x in range(M.shape[0]):
         for y in range(M.shape[1]):
             if not M[x, y]:
@@ -153,13 +150,13 @@ def create(name, explore, width, height):
         out = np.full((height, width, 3), 0, dtype=np.uint8)
         for y in range(len(pixels)):
             for x in range(len(pixels[0])):
-                out[y, x] = col(pixels[y, x], maxReps)
+                out[y, x] = col(pixels[y, x])
         Image.fromarray(out).save(name)
     else:
         for y in range(len(pixels)):
             for x in range(len(pixels[y])):
                 #print(y, x)
-                pygame.draw.rect(win, col(pixels[y, x], maxReps), (x * winScale, y * winScale, winScale, winScale))
+                pygame.draw.rect(win, col(pixels[y, x]), (x * winScale, y * winScale, winScale, winScale))
 
 if(len(sys.argv) == 2):
     with open(sys.argv[1], "r") as f:
@@ -258,14 +255,6 @@ while running:
             with open(input("name, no file extention"), "w") as outFile:
                 outFile.write(jsonFile)
         
-    if shift:
-        width = 300
-
-    else:
-        width = 150
-    height = math.floor( width / 16 * 9 )
-    winScale = math.floor(1200 / width)
-
     transX += x / scale
     transY += y / scale
     scale = math.exp(wheelCount / 10)
